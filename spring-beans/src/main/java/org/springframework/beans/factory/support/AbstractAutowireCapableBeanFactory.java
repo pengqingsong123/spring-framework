@@ -503,6 +503,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		try {
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
+			/**
+			 * 第一步:让BeanPostProcessor先拦截返回代理对象---aop[可能为空,为空的话才创建真正的bean]；
+			 */
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
 				return bean;
@@ -514,6 +517,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		try {
+			/**
+			 * 第二步:第一步没有获得代理对象的话,这里就真正开始创建bean
+			 */
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isTraceEnabled()) {
 				logger.trace("Finished creating instance of bean '" + beanName + "'");
@@ -554,6 +560,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
 		}
 		if (instanceWrapper == null) {
+			/**
+			 * 1,创建bean实例
+			 *      利用工厂方法或者对象的构造器创建出Bean实例[里面属性都是空的]；
+			 */
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
 		final Object bean = instanceWrapper.getWrappedInstance();
@@ -566,6 +576,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		synchronized (mbd.postProcessingLock) {
 			if (!mbd.postProcessed) {
 				try {
+					/**
+					 * 2.调用后置处理器
+					 */
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
 				catch (Throwable ex) {
@@ -591,7 +604,32 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Initialize the bean instance.
 		Object exposedObject = bean;
 		try {
+			/**
+			 * 3,给bean属性赋值
+			 *    |
+			 *     赋值之前：
+			 * 		1）、拿到InstantiationAwareBeanPostProcessor后置处理器；
+			 * 		 postProcessAfterInstantiation()；
+			 * 		2）、拿到InstantiationAwareBeanPostProcessor后置处理器；
+			 * 		执行这个方法postProcessPropertyValues()；
+			 * 			=====赋值之前：===
+			 * 		3）、应用Bean属性的值；为属性利用setter方法等进行赋值；
+			 * 		applyPropertyValues(beanName, mbd, bw, pvs);
+			 *    |
+			 */
 			populateBean(beanName, mbd, instanceWrapper);
+			/**
+			 * 4,【Bean初始化】initializeBean(beanName, exposedObject, mbd);
+			 * 		1）、【执行Aware接口方法】invokeAwareMethods(beanName, bean);执行xxxAware接口的方法
+			 * 			BeanNameAware\BeanClassLoaderAware\BeanFactoryAware
+			 * 		2）、【执行后置处理器初始化之前】applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
+			 * 			BeanPostProcessor.postProcessBeforeInitialization（）;
+			 * 		3）、【执行初始化方法】invokeInitMethods(beanName, wrappedBean, mbd);
+			 * 			i）、是否是InitializingBean接口的实现；执行接口规定的初始化；
+			 * 			ii）、是否自定义初始化方法；
+			 * 		4）、【执行后置处理器初始化之后】applyBeanPostProcessorsAfterInitialization
+			 * 			BeanPostProcessor.postProcessAfterInitialization()；
+			 */
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
 		catch (Throwable ex) {
@@ -632,6 +670,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		// Register bean as disposable.
+		/**
+		 * 5,注册Bean的销毁方法
+		 */
 		try {
 			registerDisposableBeanIfNecessary(beanName, bean, mbd);
 		}
